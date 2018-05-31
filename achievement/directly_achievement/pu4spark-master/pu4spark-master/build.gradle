@@ -1,0 +1,123 @@
+plugins {
+    id "com.jfrog.bintray" version "1.7.1"
+}
+
+apply plugin: 'scala'
+apply plugin: 'idea'
+apply plugin: 'maven-publish'
+apply plugin: 'java-library'
+
+repositories {
+    mavenCentral()
+    jcenter()
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '3.4.1' //version required
+}
+
+def artifactName = 'pu4spark'
+def siteUrl = 'https://github.com/ispras/' + artifactName      // Homepage URL of the library
+def gitUrl = 'https://github.com/ispras/' + artifactName + '.git'   // Git repository URL
+def artifactVersion = '0.3'
+
+// custom tasks for creating source/javadoc jars
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+task javadocJar(type: Jar, dependsOn: scaladoc) {
+    classifier = 'javadoc'
+    from scaladoc.destinationDir
+}
+
+
+artifacts {
+    archives sourcesJar, javadocJar
+}
+
+def pomConfig = {
+    licenses {
+        license {
+            name "The Apache Software License, Version 2.0"
+            url "http://www.apache.org/licenses/LICENSE-2.0.txt"
+            distribution "repo"
+        }
+    }
+    developers {
+        developer {
+            id "astrakhantsev"
+            name "Nikita Astrakhantsev"
+            email "astrakhantsev@ispras.ru"
+        }
+    }
+    scm {
+        connection gitUrl
+        developerConnection gitUrl
+        url siteUrl
+
+    }
+}
+
+publishing {
+    publications {
+        MyPublication(MavenPublication) {
+            from components.java
+            artifact sourcesJar
+            artifact javadocJar
+
+            groupId 'ru.ispras'
+            artifactId artifactName
+            version artifactVersion
+
+            pom.withXml {
+                def root = asNode()
+                root.appendNode('description', 'A library for Positive-Unlabeled Learning for Apache Spark MLlib (ml package)')
+                root.appendNode('name', 'Positive Unlabeled Learning for Apache Spark MLlib')
+                root.appendNode('url', siteUrl)
+                root.children().last() + pomConfig
+            }
+        }
+    }
+}
+
+
+bintray {
+    user = bintrayUser
+    key = bintrayApiKey
+    publications = ['MyPublication']
+    publish = true //If version should be auto published after an upload
+    override = true
+    pkg {
+        repo = 'maven'
+        name = artifactName
+        userOrg = 'ispras'
+        licenses = ['Apache-2.0']
+        vcsUrl = gitUrl
+        version {
+            name = artifactVersion
+            gpg {
+                sign = true //Determines whether to GPG sign the files. The default is false
+            }
+            //Optional configuration for Maven Central sync of the version
+//            mavenCentralSync {
+//                sync = true //[Default: true] Determines whether to sync the version to Maven Central.
+//                user = ossUser //OSS user token: mandatory
+//                password = ossPassword //OSS user password: mandatory
+//            }
+        }
+    }
+}
+
+dependencies {
+    compile 'org.scala-lang:scala-library:2.11.7'
+    //for machine learning
+    compile group: 'org.apache.spark', name: 'spark-core_2.11', version: '1.6.2'
+    compile group: 'org.apache.spark', name: 'spark-mllib_2.11', version: '1.6.2'
+    //for ranking by windows
+    compile 'org.apache.spark:spark-hive_2.11:1.6.2'
+    //log utils
+    compile group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.4'
+    compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.4'
+}
